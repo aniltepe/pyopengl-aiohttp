@@ -18,7 +18,7 @@ vec3 BlinnPhong(vec3 normal, vec3 fragPos, vec3 lightColor)
     vec3 viewDir = normalize(viewPos - fragPos);
     vec3 reflectDir = reflect(-lightDir, normal);
     vec3 halfwayDir = normalize(lightDir + viewDir);  
-    float spec = pow(max(dot(normal, halfwayDir), 0.0), 32.0);
+    float spec = pow(max(dot(normal, halfwayDir), 0.0), 10.0);
     vec3 specular = spec * lightColor;
     float distance = length(lightPos - fragPos);
     float attenuation = 1.0 / (distance * distance);

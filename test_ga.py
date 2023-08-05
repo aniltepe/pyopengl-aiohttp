@@ -12,31 +12,29 @@ import cv2 as cv
 from scipy.signal import convolve2d
 from skimage.transform import rescale
 from skimage.color import rgb2gray
-from skimage.util import img_as_ubyte
+from skimage.util import img_as_ubyte, img_as_float
 
 def init_population(pop_size):
-    # x0_rand = np.random.default_rng().uniform(-1.5, 1.5, pop_size)
-    # x1_rand = np.random.default_rng().uniform(0.0, 2.5, pop_size)
-    # x2_rand = np.random.default_rng().uniform(-1.0, 2.0, pop_size)
-    # x3_rand = np.random.default_rng().uniform(-120, 120, pop_size)
-    # x4_rand = np.random.default_rng().uniform(-120, 120, pop_size)
-    # x5_rand = np.random.default_rng().uniform(-90, 90, pop_size)
-    # x6_rand = np.random.default_rng().uniform(40.0, 150.0, pop_size)
-    x0_rand = np.random.default_rng().uniform(-0.1, 0.1, pop_size)
-    x1_rand = np.random.default_rng().uniform(1.6, 1.7, pop_size)
-    x2_rand = np.random.default_rng().uniform(0.5, 0.6, pop_size)
-    x3_rand = np.random.default_rng().uniform(-1, 1, pop_size)
-    x4_rand = np.random.default_rng().uniform(-1, 1, pop_size)
-    x5_rand = np.random.default_rng().uniform(-1, 1, pop_size)
-    x6_rand = np.random.default_rng().uniform(40.0, 40.0, pop_size)
+    x0_rand = np.random.default_rng().uniform(-1.5, 1.5, pop_size)
+    x1_rand = np.random.default_rng().uniform(0.0, 2.5, pop_size)
+    x2_rand = np.random.default_rng().uniform(-1.0, 2.0, pop_size)
+    x3_rand = np.random.default_rng().uniform(-120, 120, pop_size)
+    x4_rand = np.random.default_rng().uniform(-120, 120, pop_size)
+    x5_rand = np.random.default_rng().uniform(-90, 90, pop_size)
+    x6_rand = np.random.default_rng().uniform(40.0, 150.0, pop_size)
+    # x0_rand = np.random.default_rng().uniform(-0.1, 0.1, pop_size)
+    # x1_rand = np.random.default_rng().uniform(1.6, 1.7, pop_size)
+    # x2_rand = np.random.default_rng().uniform(0.5, 0.6, pop_size)
+    # x3_rand = np.random.default_rng().uniform(-10, 10, pop_size)
+    # x4_rand = np.random.default_rng().uniform(-10, 10, pop_size)
+    # x5_rand = np.random.default_rng().uniform(-10, 10, pop_size)
+    # x6_rand = np.random.default_rng().uniform(30.0, 50.0, pop_size)
     return np.array([x0_rand, x1_rand, x2_rand, x3_rand, x4_rand, x5_rand, x6_rand]).transpose()
 
-def calculate_fitness(population):
+def get_population_images(population):
     global width, height, window, shader, yunet, test_img
-    idx = 0
+    pop_imgs = []
     for individual in population:
-        print("index", idx)
-        idx += 1
         cam = Camera()
         cam.pos = Vector3([individual[0], individual[1], individual[2]])
         cam.rotate_roll(individual[3] - cam.curr_roll)
@@ -66,46 +64,12 @@ def calculate_fitness(population):
         image = Image.frombytes("RGB", (fwidth, fheight), pixels)
         image = image.transpose(Image.FLIP_TOP_BOTTOM)
         image.thumbnail((width, height), Image.Resampling.LANCZOS)
-        # date_time = datetime.fromtimestamp(time.time())
-        # str_date_time = date_time.strftime("%Y%m%d%H%M%S%f")
-        # str_test = ''.join([str(el) for el in individual])
-        # image.save(str_test + ".jpg")
-        # plt.imshow(image)
-        # plt.show() 
         cv_img = cv.cvtColor(np.array(image), cv.COLOR_RGB2BGR)
-        _, faces = yunet.detect(cv_img)
-        if faces is not None: 
-            output = cv_img.copy()
-            # for _, face in enumerate(faces):
-            #     coords = face[:-1].astype(np.int32)
-            #     cv.rectangle(output, (coords[0], coords[1]), (coords[0]+coords[2], coords[1]+coords[3]), (0, 255, 0), 2)
-            #     cv.circle(output, (coords[4], coords[5]), 2, (255, 0, 0), 2)
-            #     cv.circle(output, (coords[6], coords[7]), 2, (0, 0, 255), 2)
-            #     cv.circle(output, (coords[8], coords[9]), 2, (0, 255, 0), 2)
-            #     cv.circle(output, (coords[10], coords[11]), 2, (255, 0, 255), 2)
-            #     cv.circle(output, (coords[12], coords[13]), 2, (0, 255, 255), 2)
-            #     cv.putText(output, '{:.4f}'.format(face[-1]), (coords[0], coords[1]+15), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0))
-            coords = faces[0][:-1].astype(np.int32)
-            kernel = np.array([[-1, -1, -1],
-                               [-1, 8, -1],
-                               [-1, -1, -1]])
-            # output = cv.cvtColor(output, cv.COLOR_RGB2GRAY)
-            # conv_out = convolve2d(output, kernel[::-1, ::-1]).clip(0,1)
-            # conv_out_abs = abs(conv_out)
-            # cv.imshow("test", conv_out_abs.astype(np.uint8))
-            img_gray = rgb2gray(np.array(image))
-            img_conv = abs(convolve2d(img_gray, kernel).clip(0,1))
-            img_conv_cv = img_as_ubyte(img_conv)[1:-1,1:-1]
-            # plt.imshow(img_conv, cmap='gray')
-            # plt.show()
-            test_img_gray = cv.cvtColor(test_img, cv.COLOR_BGR2GRAY)
-            cropped_test = test_img_gray[coords[1]:coords[1]+coords[3], coords[0]:coords[0]+coords[2]]
-            concat_img = np.concatenate((img_conv_cv, test_img_gray), axis=0)
-            cv.imshow("test", cropped_test)
-            cv.waitKey(1000)
+        pop_imgs.append(cv_img)
 
-    return [(0, 0, 0, 0, 0, 0)]
-
+    glfw.hide_window(window)
+    return pop_imgs
+    
 def start_gl_window(width, height):
     if not glfw.init():
         print("Cannot initialize GLFW")
@@ -121,7 +85,7 @@ def start_gl_window(width, height):
         exit()
     glfw.set_window_pos(window, 800, 200)
     glfw.make_context_current(window)
-    # glfw.hide_window(window)
+    glfw.hide_window(window)
 
     positions = np.array(obj.position, dtype=np.float32)
     normals = np.array(obj.normal, dtype=np.float32)
@@ -157,39 +121,91 @@ def start_ga():
     test_img = cv.imread('image.png')
     width, height = test_img.shape[1], test_img.shape[0]
 
-    model_path = "./face_detection_yunet_2023mar.onnx"
-    yunet = cv.FaceDetectorYN.create(
-        model=model_path,
-        config='',
-        input_size=(320, 320),
-        score_threshold=0.6,
-        nms_threshold=0.3,
-        top_k=5000,
-        backend_id=cv.dnn.DNN_BACKEND_DEFAULT,
-        target_id=cv.dnn.DNN_TARGET_CPU
-    )
     yunet.setInputSize([width, height])
+    _, faces = yunet.detect(test_img)
+    if faces is None:
+        return
+    coords = faces[0][:-1].astype(np.int32)
+    kernel = np.array([[-1, -1, -1], 
+                       [-1, 8, -1], 
+                       [-1, -1, -1]])
     
+    se = cv.getStructuringElement(cv.MORPH_CROSS , (8,8))
+    
+    denoised_test = cv.fastNlMeansDenoisingColored(test_img)
+    gray_test = cv.cvtColor(denoised_test, cv.COLOR_BGR2GRAY)
+    bg = cv.morphologyEx(gray_test, cv.MORPH_DILATE, se)
+    divide_test = cv.divide(gray_test, bg, scale=255)
+    _, binary_test = cv.threshold(divide_test, 0, 255, cv.THRESH_OTSU)
+    # concimg = np.concatenate((out_gray, out_binary), axis=0)
+    # cv.imshow("test", concimg)
+    # cv.waitKey(10000)
+    cropped_test = binary_test[coords[1]:coords[1]+coords[3], coords[0]:coords[0]+coords[2]]
+    # gray_test = rgb2gray(img_as_float(cropped_test))
+    # gray_test = cv.cvtColor(cropped_test, cv.COLOR_BGR2GRAY)
+
+    # conv_test = abs(convolve2d(img_as_float(gray_test), kernel).clip(0,1))
+    # conv_test = img_as_ubyte(conv_test)
+    # conv_test = cv.fastNlMeansDenoising(conv_test)
+
+
     window, shader = start_gl_window(width, height)
 
-    pop_size = 50
+    pop_size = 100
     pop = init_population(pop_size)
     generations = 0
 
     while True: 
         generations += 1
-        scores = calculate_fitness(pop)
+        imgs = get_population_images(pop)
+        errors = []
+        for img in imgs:
+            gray_img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+            bg_ = cv.morphologyEx(gray_img, cv.MORPH_DILATE, se)
+            divide_img = cv.divide(gray_img, bg_, scale=255)
+            _, binary_img = cv.threshold(divide_img, 0, 255, cv.THRESH_OTSU)
+            cropped_img = binary_img[coords[1]:coords[1]+coords[3], coords[0]:coords[0]+coords[2]]
+            diff = cv.subtract(cv.bitwise_not(cropped_test), cv.bitwise_not(cropped_img))
+            err = np.sum(diff**2)
+            mse = err/(float(cropped_test.shape[0] * cropped_test.shape[1]))
+            errors.append(mse)
+            msre = np.sqrt(mse)
+            # gray_img = rgb2gray(img_as_float(cropped_img))
+            # conv_img = abs(convolve2d(gray_img, kernel).clip(0,1))
+            # conv_img = img_as_ubyte(conv_img)
 
+            # concat_img = np.concatenate((conv_test, conv_img), axis=0)
+            # concat_img = np.concatenate((cropped_test, cropped_img), axis=0)
+            # cv.imshow("test", concat_img)
+            # cv.waitKey(1000)
+        
+        errors_np = np.array(errors)
+        sort_index = np.argsort(errors_np)
+        for idx in sort_index:
+            concat_img = np.concatenate((imgs[idx], test_img), axis=0)
+            cv.putText(concat_img, '{:.4f}'.format(errors[idx]), (0, 15), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0))
+            cv.imshow("test", concat_img)
+            cv.waitKey(1000)
 
 
     glfw.terminate()
 
 cam = Camera()
+model_path = "./face_detection_yunet_2023mar.onnx"
+yunet = cv.FaceDetectorYN.create(
+    model=model_path,
+    config='',
+    input_size=(320, 320),
+    score_threshold=0.6,
+    nms_threshold=0.3,
+    top_k=5000,
+    backend_id=cv.dnn.DNN_BACKEND_DEFAULT,
+    target_id=cv.dnn.DNN_TARGET_CPU
+)
 width = 0
 height = 0
 window = {}
 shader = {}
-yunet = {}
 test_img = {}
 
 if __name__ == '__main__':
