@@ -10,7 +10,7 @@ class Camera:
         self.left = Vector3([-1.0, 0.0, 0.0])
         self.fov = 40
         self.near = 0.01
-        self.far = 1000
+        self.far = 100
         self.velocity = 0.25
         self.curr_pitch = 0.0
         self.curr_yaw = 0.0

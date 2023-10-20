@@ -4,7 +4,7 @@ from OpenGL.GL.shaders import compileProgram, compileShader
 import numpy as np
 from pyrr import Vector3, matrix44
 from camera import Camera
-import obj
+import obj_male
 import matplotlib.image as img
 import matplotlib.pyplot as plt
 from PIL import Image
@@ -69,7 +69,31 @@ def get_population_images(population):
 
     glfw.hide_window(window)
     return pop_imgs
-    
+
+def crossover(parents):
+    cross_size = parents.shape[0]
+    cross_point = int(parents.shape[1] / 2)
+    offspring = np.empty(parents.shape)
+    for i in range(cross_size):
+        par1_idx = i
+        par2_idx = (i + 1) % cross_size
+        offspring[i, 0:cross_point] = parents[par1_idx, 0:cross_point]
+        offspring[i, cross_point:] = parents[par2_idx, cross_point:]
+    return offspring
+
+def mutation(offsprings, num_mutations=1):
+    mutation_size = offsprings.shape[0]
+    gene_size = offsprings.shape[1]
+    mutation = np.copy(offsprings)
+    for i in range(mutation_size):
+        # mutated_indexes = np.random.randint(0, gene_size, size=num_mutations)
+        mutated_indexes = np.random.choice(gene_size, num_mutations, replace=False)
+        for idx in mutated_indexes:
+            mutation_amount = np.random.uniform(0.3, 1.7, 1)
+            mutation[i, idx] = mutation[i, idx] * mutation_amount[0]
+    return mutation
+        
+
 def start_gl_window(width, height):
     if not glfw.init():
         print("Cannot initialize GLFW")
@@ -87,9 +111,9 @@ def start_gl_window(width, height):
     glfw.make_context_current(window)
     glfw.hide_window(window)
 
-    positions = np.array(obj.position, dtype=np.float32)
-    normals = np.array(obj.normal, dtype=np.float32)
-    indices = np.array(obj.indice, dtype=np.uint32)
+    positions = np.array(obj_male.position, dtype=np.float32)
+    normals = np.array(obj_male.normal, dtype=np.float32)
+    indices = np.array(obj_male.indice, dtype=np.uint32)
 
     VAO = glGenVertexArrays(1)
     VBO = glGenBuffers(1)
@@ -134,26 +158,33 @@ def start_ga():
     
     denoised_test = cv.fastNlMeansDenoisingColored(test_img)
     gray_test = cv.cvtColor(denoised_test, cv.COLOR_BGR2GRAY)
-    bg = cv.morphologyEx(gray_test, cv.MORPH_DILATE, se)
-    divide_test = cv.divide(gray_test, bg, scale=255)
-    _, binary_test = cv.threshold(divide_test, 0, 255, cv.THRESH_OTSU)
+    # bg = cv.morphologyEx(gray_test, cv.MORPH_DILATE, se)
+    # divide_test = cv.divide(gray_test, bg, scale=255)
+    # _, binary_test = cv.threshold(divide_test, 0, 255, cv.THRESH_OTSU)
     # concimg = np.concatenate((out_gray, out_binary), axis=0)
     # cv.imshow("test", concimg)
     # cv.waitKey(10000)
-    cropped_test = binary_test[coords[1]:coords[1]+coords[3], coords[0]:coords[0]+coords[2]]
+    # cropped_test = binary_test[coords[1]:coords[1]+coords[3], coords[0]:coords[0]+coords[2]]
+    
     # gray_test = rgb2gray(img_as_float(cropped_test))
     # gray_test = cv.cvtColor(cropped_test, cv.COLOR_BGR2GRAY)
 
-    # conv_test = abs(convolve2d(img_as_float(gray_test), kernel).clip(0,1))
-    # conv_test = img_as_ubyte(conv_test)
-    # conv_test = cv.fastNlMeansDenoising(conv_test)
+    conv_test = abs(convolve2d(img_as_float(gray_test), kernel).clip(0,1))
+    conv_test = img_as_ubyte(conv_test)
+    conv_test = cv.fastNlMeansDenoising(conv_test)
+
+    cropped_test = conv_test[coords[1]:coords[1]+coords[3], coords[0]:coords[0]+coords[2]]
 
 
     window, shader = start_gl_window(width, height)
 
     pop_size = 100
-    pop = init_population(pop_size)
+    parents_size = 0
+    crossover_size = 50
+    mutation_size = 50
     generations = 0
+
+    pop = init_population(pop_size)
 
     while True: 
         generations += 1
@@ -161,18 +192,19 @@ def start_ga():
         errors = []
         for img in imgs:
             gray_img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
-            bg_ = cv.morphologyEx(gray_img, cv.MORPH_DILATE, se)
-            divide_img = cv.divide(gray_img, bg_, scale=255)
-            _, binary_img = cv.threshold(divide_img, 0, 255, cv.THRESH_OTSU)
-            cropped_img = binary_img[coords[1]:coords[1]+coords[3], coords[0]:coords[0]+coords[2]]
-            diff = cv.subtract(cv.bitwise_not(cropped_test), cv.bitwise_not(cropped_img))
+            # bg_ = cv.morphologyEx(gray_img, cv.MORPH_DILATE, se)
+            # divide_img = cv.divide(gray_img, bg_, scale=255)
+            # _, binary_img = cv.threshold(divide_img, 0, 255, cv.THRESH_OTSU)
+            # cropped_img = binary_img[coords[1]:coords[1]+coords[3], coords[0]:coords[0]+coords[2]]
+            # gray_img = rgb2gray(img_as_float(cropped_img))
+            conv_img = abs(convolve2d(gray_img, kernel).clip(0,1))
+            conv_img = img_as_ubyte(conv_img)
+
+            cropped_img = conv_img[coords[1]:coords[1]+coords[3], coords[0]:coords[0]+coords[2]]
+            diff = np.subtract(cropped_test, cropped_img)
             err = np.sum(diff**2)
             mse = err/(float(cropped_test.shape[0] * cropped_test.shape[1]))
             errors.append(mse)
-            msre = np.sqrt(mse)
-            # gray_img = rgb2gray(img_as_float(cropped_img))
-            # conv_img = abs(convolve2d(gray_img, kernel).clip(0,1))
-            # conv_img = img_as_ubyte(conv_img)
 
             # concat_img = np.concatenate((conv_test, conv_img), axis=0)
             # concat_img = np.concatenate((cropped_test, cropped_img), axis=0)
@@ -181,11 +213,25 @@ def start_ga():
         
         errors_np = np.array(errors)
         sort_index = np.argsort(errors_np)
-        for idx in sort_index:
-            concat_img = np.concatenate((imgs[idx], test_img), axis=0)
-            cv.putText(concat_img, '{:.4f}'.format(errors[idx]), (0, 15), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0))
-            cv.imshow("test", concat_img)
-            cv.waitKey(1000)
+        errors_sorted = errors_np[sort_index]
+        pop_sorted = pop[sort_index]
+        print("Generation:", generations, "Best error:", errors_sorted[0])
+        concat_img = np.concatenate((imgs[sort_index[0]], test_img), axis=0)
+        cv.waitKey(400)
+        cv.imshow("test", concat_img)
+        offspring_crossover = crossover(pop_sorted[0:crossover_size,:])
+        offspring_mutation = mutation(offspring_crossover[0:mutation_size,:], 4)
+
+        pop[0:parents_size, :] = pop_sorted[0:parents_size, :]
+        pop[parents_size : parents_size + crossover_size, :] = offspring_crossover
+        pop[parents_size + crossover_size: , :] = offspring_mutation
+
+
+        # for idx in sort_index:
+        #     concat_img = np.concatenate((imgs[idx], test_img), axis=0)
+        #     cv.putText(concat_img, '{:.4f}'.format(errors[idx]), (0, 15), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0))
+        #     cv.imshow("test", concat_img)
+        #     cv.waitKey(1000)
 
 
     glfw.terminate()

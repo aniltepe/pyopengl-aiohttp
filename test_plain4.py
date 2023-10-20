@@ -4,7 +4,7 @@ from OpenGL.GL.shaders import compileProgram, compileShader
 import numpy as np
 from pyrr import Vector3, matrix44
 from camera import Camera
-import obj
+import obj_male
 import matplotlib.image as img
 import matplotlib.pyplot as plt
 from PIL import Image
@@ -123,9 +123,9 @@ def start_gl_window(width, height):
     glfw.make_context_current(window)
     # glfw.hide_window(window)
 
-    positions = np.array(obj.position, dtype=np.float32)
-    normals = np.array(obj.normal, dtype=np.float32)
-    indices = np.array(obj.indice, dtype=np.uint32)
+    positions = np.array(obj_male.position, dtype=np.float32)
+    normals = np.array(obj_male.normal, dtype=np.float32)
+    indices = np.array(obj_male.indice, dtype=np.uint32)
 
     VAO = glGenVertexArrays(1)
     VBO = glGenBuffers(1)

@@ -8,7 +8,7 @@ import pyrr
 import time
 import json
 from camera import Camera
-import obj
+import obj_male
 
 cam = Camera()
 
@@ -36,9 +36,9 @@ async def start_scene():
     glfw.set_window_pos(window, 50, 50)
     glfw.make_context_current(window)
 
-    positions = np.array(obj.position, dtype=np.float32)
-    normals = np.array(obj.normal, dtype=np.float32)
-    indices = np.array(obj.indice, dtype=np.uint32)
+    positions = np.array(obj_male.position, dtype=np.float32)
+    normals = np.array(obj_male.normal, dtype=np.float32)
+    indices = np.array(obj_male.indice, dtype=np.uint32)
 
     VAO = glGenVertexArrays(1)
     VBO = glGenBuffers(1)

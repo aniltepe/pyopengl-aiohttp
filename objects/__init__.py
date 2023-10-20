@@ -1,0 +1,1 @@
+__all__ = ["light_left", "light_right", "obj_cube", "obj_floor", "obj_male", "obj_lefteye", "obj_righteye"]
