@@ -14,7 +14,7 @@ for i in range(9884):
         values_uv = [values_int[index]/WIDTH if index%2 == 0 else (HEIGHT-values_int[index])/HEIGHT for index in range(len(values_int))]
         s += f"{values_uv[0]}, {values_uv[1]}, {values_uv[2]}, {values_uv[3]}, {values_uv[4]}, {values_uv[5]},\n"
     else:
-        s += "0.0, 0.0, 0.0, 0.0, 0.0, 0.0,\n"
+        s += "0.0, 0.0, 0.01, 0.0, 0.0, 0.01,\n"
 
 f = open("tex_male.txt", "w")
 f.write(s)

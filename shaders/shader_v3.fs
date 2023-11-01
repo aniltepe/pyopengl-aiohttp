@@ -13,6 +13,7 @@ struct Light {
     float constant;
     float linear;
     float quadratic;
+    float intensity;
 };
 
 uniform sampler2D albedoMap;
@@ -35,10 +36,14 @@ vec3 gridSamplingDisk[20] = vec3[]
 float ShadowCalculation(Light light, samplerCube depthMap) {
     vec3 fragToLight = fs_in.FragPos - light.position;
     float currentDepth = length(fragToLight);
+    // float closestDepth = texture(depthMap, fragToLight).r;
+    // closestDepth *= farPlane;
     float shadow = 0.0;
-    float bias = 0.15;
+    float bias = 0.05;
+    float nearPlane = 0.1;
+    // float shadow = currentDepth - bias > closestDepth ? 1.0 : 0.0;
     float viewDistance = length(viewPos - fs_in.FragPos);
-    float diskRadius = (1.0 + (viewDistance / farPlane)) / 25.0;
+    float diskRadius = (nearPlane + (viewDistance / farPlane)) / farPlane;
     for (int i = 0; i < 20; ++i) {
         float closestDepth = texture(depthMap, fragToLight + gridSamplingDisk[i] * diskRadius).r;
         closestDepth *= farPlane;
@@ -50,8 +55,8 @@ float ShadowCalculation(Light light, samplerCube depthMap) {
 }
 
 vec3 LightCalculation(vec3 albedo, vec3 normal, Light light, samplerCube depthMap) {
-    vec3 lightColor = light.color;
-    vec3 ambient = 0.3 * albedo;
+    vec3 lightColor = light.color * light.intensity;
+    vec3 ambient = 0.1 * albedo;
     vec3 lightDir = normalize(light.position - fs_in.FragPos);
     float diff = max(dot(lightDir, normal), 0.0);
     vec3 diffuse = diff * lightColor;
@@ -60,7 +65,7 @@ vec3 LightCalculation(vec3 albedo, vec3 normal, Light light, samplerCube depthMa
     vec3 halfwayDir = normalize(lightDir + viewDir);
     vec3 specular = vec3(0.0);
     if (diff > 0.0) {
-        float spec = pow(max(dot(normal, halfwayDir), 0.0), 64.0);
+        float spec = pow(max(dot(normal, halfwayDir), 0.0), 5.0);
         specular = spec * lightColor;
     }
     float shadow = ShadowCalculation(light, depthMap);

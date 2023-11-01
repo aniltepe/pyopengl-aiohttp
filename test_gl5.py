@@ -2,7 +2,7 @@ import glfw
 from OpenGL.GL import *
 from OpenGL.GL.shaders import compileProgram, compileShader
 import numpy as np
-from pyrr import Vector3, matrix44
+from pyrr import Vector3, matrix44, matrix33
 from camera import Camera
 from PIL import Image, ImageOps
 from objects import *
@@ -50,10 +50,10 @@ def start_gl_window():
         glfw.terminate()
         print("GLFW window cannot be created")
         exit()
-    glfw.make_context_current(window)
     glfw.set_window_pos(window, 200, 200)
     glfw.set_framebuffer_size_callback(window, handle_resize)
-    glfw.set_key_callback(window, process_discrete_input)
+    glfw.make_context_current(window)
+    glfw.set_key_callback(window, handle_discrete_input)
 
     glClearColor(0, 0.5, 0, 1)
     glEnable(GL_DEPTH_TEST)
@@ -66,7 +66,7 @@ def start_gl_window():
 def handle_resize(window, width, height):
     glViewport(0, 0, width, height)
 
-def process_discrete_input(window, key, scancode, action, mods):
+def handle_discrete_input(window, key, scancode, action, mods):
     global polygon_mode
     if action == glfw.PRESS and key == glfw.KEY_ESCAPE:
         glfw.set_window_should_close(window, True)
@@ -78,8 +78,8 @@ def process_discrete_input(window, key, scancode, action, mods):
         elif polygon_mode == GL_POINT:
             polygon_mode = GL_FILL
         
-def process_continuous_input(window):
-    global camera
+def handle_continuous_input(window):
+    global camera, scene_lights
     if glfw.get_key(window, glfw.KEY_W) == glfw.PRESS:
         offset = camera.front * 0.02
         camera.pos += offset
@@ -110,6 +110,18 @@ def process_continuous_input(window):
         camera.rotate_roll(-1.0)
     if glfw.get_key(window, glfw.KEY_E) == glfw.PRESS:
         camera.rotate_roll(1.0)
+    if glfw.get_key(window, glfw.KEY_T) == glfw.PRESS:
+        scene_lights[0].position += Vector3([-0.01, 0.0, 0.0])
+    if glfw.get_key(window, glfw.KEY_Y) == glfw.PRESS:
+        scene_lights[0].position += Vector3([0.01, 0.0, 0.0])
+    if glfw.get_key(window, glfw.KEY_G) == glfw.PRESS:
+        scene_lights[0].position += Vector3([0.0, -0.01, 0.0])
+    if glfw.get_key(window, glfw.KEY_H) == glfw.PRESS:
+        scene_lights[0].position += Vector3([0.0, 0.01, 0.0])
+    if glfw.get_key(window, glfw.KEY_B) == glfw.PRESS:
+        scene_lights[0].position += Vector3([0.0, 0.0, -0.01])
+    if glfw.get_key(window, glfw.KEY_N) == glfw.PRESS:
+        scene_lights[0].position += Vector3([0.0, 0.0, 0.01])
 
 def create_shader(vpath, fpath, gpath=None):
     vs = open("shaders/" + vpath, "r")
@@ -233,15 +245,23 @@ def create_object(obj):
     glEnableVertexAttribArray(2)
     glVertexAttribPointer(2, 2, GL_FLOAT, False, 2 * 4, ctypes.c_void_p(positions.nbytes + normals.nbytes))
 
-    shader = create_shader("shader_v2.vs", "shader_v3.fs")
+    shader = create_shader("shader_v2.vs", "shader_v4.fs")
     glUseProgram(shader)
     glUniform1i(glGetUniformLocation(shader, "albedoMap"), 0)
-    glUniform1i(glGetUniformLocation(shader, "depthMap0"), 1)
-    glUniform1i(glGetUniformLocation(shader, "depthMap1"), 2)
+    glUniform1i(glGetUniformLocation(shader, "normalMap"), 1)
+    glUniform1i(glGetUniformLocation(shader, "metallicMap"), 2)
+    glUniform1i(glGetUniformLocation(shader, "roughnessMap"), 3)
+    glUniform1i(glGetUniformLocation(shader, "aoMap"), 4)
+    glUniform1i(glGetUniformLocation(shader, "depthMap0"), 5)
+    glUniform1i(glGetUniformLocation(shader, "depthMap1"), 6)
     albedo = load_texture(obj.albedo)
+    normalmap = load_texture(obj.normalmap)
+    metallic = load_texture(obj.metallic)
+    roughness = load_texture(obj.roughness)
+    ao = load_texture(obj.ao)
 
     draw_size = int(positions.size / 3) if indices.size == 0 else len(obj.indice)
-    tex = GL_Texture(albedo, None, None, None, None)
+    tex = GL_Texture(albedo, normalmap, metallic, roughness, ao)
     gl_obj = GL_Object(shader, VAO, draw_size, tex, indices.size > 0)
     scene_objects.append(gl_obj)
 
@@ -252,22 +272,26 @@ def start_scene():
     create_object(obj_male)
     create_object(obj_lefteye)
     create_object(obj_righteye)
-    # create_object(obj_quad, 5.0)
+    # create_object(obj_quad)
     # create_object(obj_cube)
     create_object(obj_floor)
-    create_light(light_left)
     create_light(light_right)
+    create_light(light_left)
     
-    camera.pos = Vector3([0.0, 1.7, 2.5])
+    camera.pos = Vector3([0.0, 0.5, 2.5])
 
     while not glfw.window_should_close(window):
-        process_continuous_input(window)
+        handle_continuous_input(window)
         glPolygonMode(GL_FRONT_AND_BACK, polygon_mode)
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 
         projection = matrix44.create_perspective_projection_matrix(camera.fov, WIDTH / HEIGHT, camera.near, camera.far)
         view = matrix44.create_look_at(camera.pos, camera.pos + camera.front, camera.up)
         model = matrix44.create_identity()
+
+        normal_matrix = matrix33.create_from_matrix44(model)
+        normal_matrix = matrix33.inverse(normal_matrix)
+        normal_matrix = np.transpose(normal_matrix)
 
         for l in scene_lights:
             shadow_proj = matrix44.create_perspective_projection_matrix(90.0, float(SHADOW_WIDTH / SHADOW_HEIGHT), 0.1, far_plane)
@@ -305,6 +329,7 @@ def start_scene():
             glUniformMatrix4fv(glGetUniformLocation(o.shader, "model"), 1, GL_FALSE, model)
             glUniform3fv(glGetUniformLocation(o.shader, "viewPos"), 1, camera.pos)
             glUniform1f(glGetUniformLocation(o.shader, "farPlane"), far_plane)
+            glUniformMatrix3fv(glGetUniformLocation(o.shader, "normalMatrix"), 1, GL_FALSE, normal_matrix)
             for i, l in enumerate(scene_lights):
                 glUniform3fv(glGetUniformLocation(o.shader, "light" + str(i) + ".position"), 1, l.position)
                 glUniform3fv(glGetUniformLocation(o.shader, "light" + str(i) + ".color"), 1, l.color)
@@ -312,11 +337,19 @@ def start_scene():
                 glUniform1f(glGetUniformLocation(o.shader, "light" + str(i) + ".linear"), l.linear)
                 glUniform1f(glGetUniformLocation(o.shader, "light" + str(i) + ".quadratic"), l.quadratic)
                 glUniform1f(glGetUniformLocation(o.shader, "light" + str(i) + ".intensity"), l.intensity)
-                glActiveTexture(GL_TEXTURE1 + i)
+                glActiveTexture(GL_TEXTURE5 + i)
                 glBindTexture(GL_TEXTURE_CUBE_MAP, l.shadow_cube)
 
             glActiveTexture(GL_TEXTURE0)
             glBindTexture(GL_TEXTURE_2D, o.texture.albedo)
+            glActiveTexture(GL_TEXTURE1)
+            glBindTexture(GL_TEXTURE_2D, o.texture.normal)
+            glActiveTexture(GL_TEXTURE2)
+            glBindTexture(GL_TEXTURE_2D, o.texture.metallic)
+            glActiveTexture(GL_TEXTURE3)
+            glBindTexture(GL_TEXTURE_2D, o.texture.roughness)
+            glActiveTexture(GL_TEXTURE4)
+            glBindTexture(GL_TEXTURE_2D, o.texture.ao)
             
             glBindVertexArray(o.VAO)
             if o.indiced:
@@ -331,7 +364,7 @@ def start_scene():
     glfw.terminate()
 
 
-WIDTH, HEIGHT = 600, 400
+WIDTH, HEIGHT = 800, 600
 SHADOW_WIDTH, SHADOW_HEIGHT = 1024, 1024
 scene_objects = []
 scene_lights = []
