@@ -16,7 +16,7 @@ for i in range(9884):
     else:
         s += "0.0, 0.0, 0.01, 0.0, 0.0, 0.01,\n"
 
-f = open("tex_male.txt", "w")
+f = open("tex_male3.txt", "w")
 f.write(s)
 f.close()
 # print(len(obj_male.indice))
